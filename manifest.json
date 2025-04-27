@@ -1,0 +1,10 @@
+{
+  "id": "epub-viewer",
+  "name": "EPUB Viewer",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "View .epub files inside Obsidian using a custom FileView",
+  "author": "Vincent",
+  "authorUrl": "https://github.com/",
+  "main": "main.js"
+}
