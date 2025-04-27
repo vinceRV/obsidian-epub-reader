@@ -1,6 +1,6 @@
 import { WorkspaceLeaf, TFile, FileView } from "obsidian";
 import ePub, { Book, Rendition } from "epubjs";
-import { EpubNavigation } from "./epub-navigation";
+import { NavigationTools } from "./epub-navigation-tools";
 import { EpubThemes } from "./epub-themes";
 
 export const EPUB_VIEW_TYPE = "epub-view";
@@ -8,7 +8,7 @@ export const EPUB_VIEW_TYPE = "epub-view";
 export class EpubView extends FileView {
 	private book: Book | null = null;
 	private rendition: Rendition | null = null;
-	private _epubNavigation: EpubNavigation | null = null;
+	private _navigationTools: NavigationTools | null = null;
 	public file: TFile | null = null;
 
 	constructor(leaf: WorkspaceLeaf) {
@@ -18,12 +18,12 @@ export class EpubView extends FileView {
 	getViewType(): string { return EPUB_VIEW_TYPE; }
 	getDisplayText(): string { return "EPUB Viewer"; }
 
-	get navigation(): EpubNavigation | null {
-		return this._epubNavigation;
+	get navigationTools(): NavigationTools | null {
+		return this._navigationTools;
 	}
 
-	set navigation(nav: EpubNavigation | null) {
-		this._epubNavigation = nav;
+	set navigationTools(nav: NavigationTools | null) {
+		this._navigationTools = nav;
 	}
 
 	async onLoadFile(file: TFile): Promise<void> {
@@ -31,14 +31,14 @@ export class EpubView extends FileView {
 
 		const arrayBuffer = await this.app.vault.readBinary(file);
 		const container = this.containerEl.children[1];
-		
+
 		container.empty();
-	
+
 		const viewerDiv = container.createDiv({ cls: "epub-viewer" });
 
 		this.book = ePub(arrayBuffer);
 		this.rendition = this.book.renderTo(viewerDiv, { width: "100%", height: "100%" });
-		this._epubNavigation = new EpubNavigation(viewerDiv, file.name, this.book, this.rendition);
+		this._navigationTools = new NavigationTools(viewerDiv, file.name, this.book, this.rendition);
 
 		new EpubThemes(this.rendition);
 		await this.rendition.display();
