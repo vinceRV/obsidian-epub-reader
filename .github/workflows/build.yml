@@ -26,9 +26,9 @@ jobs:
       - name: Package plugin files
         run: |
           mkdir -p dist
-          cp manifest.json dist/
-          cp main.js dist/
-          cp styles.css dist/
+          cp src/manifest.json dist/
+          cp src/main.js dist/
+          cp src/styles.css dist/
 
       - name: Create zip archive
         run: |
