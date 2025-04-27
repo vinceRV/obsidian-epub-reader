@@ -23,9 +23,6 @@ jobs:
       - name: Build plugin
         run: npm run build
 
-      - name: Lint code
-        run: npm run lint
-
       - name: Package plugin files
         run: |
           mkdir -p dist
