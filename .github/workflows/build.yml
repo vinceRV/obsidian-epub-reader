@@ -30,6 +30,12 @@ jobs:
           cp main.js dist/
           cp styles.css dist/
 
+      - name: Create zip archive
+        run: |
+          cd dist
+          zip ../obsidian-epub-reader-${{ github.event.release.tag_name }}.zip manifest.json main.js styles.css
+          cd ..
+
       - name: Upload manifest.json
         uses: softprops/action-gh-release@v2
         with:
@@ -48,5 +54,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/styles.css
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload zip archive
+        uses: softprops/action-gh-release@v2
+        with:
+          files: obsidian-epub-reader-${{ github.event.release.tag_name }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
