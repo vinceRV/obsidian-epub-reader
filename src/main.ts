@@ -9,7 +9,7 @@ export default class EpubViewerPlugin extends Plugin {
 		patchWorkspaceForEpub(this);
 	}
 
-	async openEpubAtChapter(file: TFile, params: Record<string, string>, newLeaf?: boolean): Promise<void> {
+	async openEpubAtLocation(file: TFile, params: Record<string, string>, newLeaf?: boolean): Promise<void> {
 		if (!file) {
 			new Notice("EPUB file not found.");
 			return;
@@ -24,7 +24,7 @@ export default class EpubViewerPlugin extends Plugin {
 		} else {
 			this.app.workspace.setActiveLeaf(leaf, { focus: true });
 		}
-		await (leaf.view as EpubView).navigationTools?.navigateToChapter(params);
+		await (leaf.view as EpubView).navigationTools?.navigateToLocation(params);
 	}
 }
 
@@ -38,7 +38,7 @@ const patchWorkspaceForEpub = (plugin: EpubViewerPlugin): void => {
 					const file = app.metadataCache.getFirstLinkpathDest(path, sourcePath);
 					if (file && file.extension === "epub") {
 						const params = parseEpubSubpath(subpath);
-						return plugin.openEpubAtChapter(file, params, newLeaf);
+						return plugin.openEpubAtLocation(file, params, newLeaf);
 					}
 					return old.call(this, linktext, sourcePath, newLeaf, openViewState);
 				};

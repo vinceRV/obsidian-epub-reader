@@ -1,31 +1,99 @@
 import { type Book, type Contents, type Rendition } from "epubjs";
+import Locations from "epubjs/types/locations";
+import { Location } from "epubjs/types/rendition";
 
 export class NavigationTools {
 	private tocPanel: HTMLDivElement;
 	private isTOCOpen = false;
 	private copyPanel: HTMLDivElement;
+	private locations: Promise<Locations>;
+	private highlight: string | null = null;
 	private onNavigate: (href: string) => void;
+
+	private currentLocation: Location | null = null;
+	private needCorrection = false;
 
 	constructor(viewerDiv: HTMLElement, private bookRelativePath: string, private book: Book, private rendition: Rendition) {
 		this.onNavigate = (href: string) => this.rendition.display(href);
 
-		this.initLocations();
-		this.createNavigationButton(viewerDiv, "epub-nav-prev", "❮", () => this.rendition.prev());
-		this.createNavigationButton(viewerDiv, "epub-nav-next", "❯", () => this.rendition.next());
+		this.locations = this.generateLocations();
+		this.createNavigationButton(viewerDiv, "epub-nav-prev", "❮", async () => this.rendition.prev());
+		this.createNavigationButton(viewerDiv, "epub-nav-next", "❯", async () => this.rendition.next());
 		this.createTocPanel(viewerDiv);
 		this.addSelectionListener(viewerDiv);
+		this.addKeyListeners();
+
+		// handle focus and resize events
+		this.rendition.on("relocated", async (loc: Location) => {
+			if (this.needCorrection) {
+				this.needCorrection = false;
+				this.rendition.display(this.currentLocation?.start.cfi);
+			} else {
+				this.currentLocation = loc;
+			}
+		});
+
+		this.rendition.on("resized", async (e: unknown) => {
+			this.needCorrection = true;
+		});
 	}
 
-	async navigateToChapter(params: Record<string, string>): Promise<void> {
+	async hasFocus(): Promise<void> {
+		this.needCorrection = true;
+	}
+
+	async navigateToLocation(params: Record<string, string>): Promise<void> {
+		this.needCorrection = false;
+
+		if (this.highlight) {
+			this.rendition.annotations.remove(this.highlight, "highlight");
+			this.highlight = null;
+			this.rendition.clear();
+		}
+
 		if (params.cfi) {
-			await this.rendition.display(params.cfi);
-			this.rendition.annotations.remove("highlight", "highlight"); // Remove previous highlights
+			this.highlight = params.cfi;
 			this.rendition.annotations.highlight(params.cfi, {}, undefined, "highlight");
+			await this.rendition.display(params.cfi);
 		} else if (params.href) {
 			await this.rendition.display(params.href);
 		} else {
 			console.warn("No valid navigation parameter provided.");
 		}
+	}
+
+	private addKeyListeners() {
+		this.rendition.on("rendered", (section: unknown, contents: Contents) => {
+			contents.document.addEventListener("keydown", async (event: KeyboardEvent) => {
+				if (event.key === "ArrowLeft") {
+					this.rendition.prev();
+					event.preventDefault();
+				} else if (event.key === "ArrowRight") {
+					this.rendition.next();
+					event.preventDefault();
+				} else if (event.key === "PageUp" || event.key === "PageDown") {
+					const toc = await this.book.loaded.navigation;
+					const currentHref = this.rendition.location?.start?.href;
+					const tocItems = toc.toc;
+					const idx = tocItems.findIndex(item => this.sanitize(item.href) === this.sanitize(currentHref));
+					let targetIdx = -1;
+					if (event.key === "PageUp" && idx < tocItems.length - 1) {
+						targetIdx = idx + 1;
+					} else if (event.key === "PageDown" && idx > 0) {
+						targetIdx = idx - 1;
+					}
+					if (targetIdx !== -1) {
+						const targetHref = this.sanitize(tocItems[targetIdx].href);
+						await this.rendition.display(targetHref);
+						event.preventDefault();
+					}
+				}
+			});
+
+			// keep the focus on the iframe
+			(contents.document.body as HTMLElement).setAttribute("tabindex", "0");
+			(contents.document.body as HTMLElement).focus();
+		});
 	}
 
 	private async addSelectionListener(viewerDiv: HTMLElement) {
@@ -66,11 +134,15 @@ export class NavigationTools {
 		});
 	}
 
-	private createNavigationButton(viewerDiv: HTMLElement, className: string, text: string, handler: () => void) {
+	private createNavigationButton(viewerDiv: HTMLElement, className: string, text: string, handler: () => Promise<void>) {
 		const btn = document.createElement("button");
 		btn.className = `epub-button epub-nav-btn ${className}`;
 		btn.textContent = text;
-		btn.onclick = e => { e.stopPropagation(); handler(); };
+		btn.onclick = async (e) => {
+			e.stopPropagation();
+			this.toggleTOCVisibility(false);
+			handler();
+		};
 		viewerDiv.append(btn);
 	}
 
@@ -122,11 +194,8 @@ export class NavigationTools {
 
 		// hide the TOC panel when clicking outside of it
 		this.rendition.on("rendered", (_section: never, contents: Contents) => {
-			contents.document.addEventListener("mousedown", (event: MouseEvent) => {
-				if (this.isTOCOpen) {
-					this.toggleTOCVisibility(false);
-				}
-				this.copyPanel.classList.toggle("open", false);
+			contents.document.addEventListener("mousedown", () => {
+				this.toggleTOCVisibility(false);
 			});
 		});
 	}
@@ -137,21 +206,23 @@ export class NavigationTools {
 		this.flipTextToCheckMark(e.currentTarget as HTMLButtonElement);
 	}
 
-	private copyLinkToCFIToClipboard(e: Event, title: string, cfiRange: string) {
+	private async copyLinkToCFIToClipboard(e: Event, title: string, cfiRange: string) {
 		e.stopPropagation();
 
-		const label = this.book.locations.locationFromCfi(cfiRange);
-		navigator.clipboard.writeText(`[[${this.bookRelativePath}#cfi=${cfiRange}|${title}, p.${label}]]`);
+		const locations = await this.locations;
+		const location = locations.locationFromCfi(cfiRange);
+		navigator.clipboard.writeText(`[[${this.bookRelativePath}#cfi=${cfiRange}|${title}, loc.${location}]]`);
 		this.flipTextToCheckMark(e.currentTarget as HTMLButtonElement);
 	}
 
-	private copyQuoteAndLinkToClipboard(e: Event, title: string, cfiRange: string, selection: Selection) {
+	private async copyQuoteAndLinkToClipboard(e: Event, title: string, cfiRange: string, selection: Selection) {
 		e.stopPropagation();
 
-		const label = this.book.locations.locationFromCfi(cfiRange);
+		const locations = await this.locations;
+		const location = locations.locationFromCfi(cfiRange);
 		const selectedText = selection ? selection.toString().trim() : "";
 		const quote = selectedText ? `> ${selectedText}\n-- ` : "";
-		const link = `[[${this.bookRelativePath}#cfi=${cfiRange}|${title}, p.${label}]]`;
+		const link = `[[${this.bookRelativePath}#cfi=${cfiRange}|${title}, loc.${location}]]`;
 		navigator.clipboard.writeText(`${quote}${link}`);
 		this.flipTextToCheckMark(e.currentTarget as HTMLButtonElement);
 	}
@@ -170,11 +241,10 @@ export class NavigationTools {
 		setTimeout(() => btn.textContent = originalText, 1000);
 	}
 
-	private async initLocations() {
+	private async generateLocations() {
 		await this.book.ready;
-		if (!this.book.locations.length()) {
-			await this.book.locations.generate(1000);
-		}
+		await this.book.locations.generate(1000);
+		return this.book.locations;
 	}
 
 	private sanitize(str: string): string {
@@ -190,6 +260,7 @@ export class NavigationTools {
 	private toggleTOCVisibility(show?: boolean) {
 		const shouldShow = show !== undefined ? show : !this.isTOCOpen;
 		this.tocPanel.classList.toggle("open", shouldShow);
+		this.copyPanel.classList.toggle("open", false);
 		this.isTOCOpen = shouldShow;
 	}
 }

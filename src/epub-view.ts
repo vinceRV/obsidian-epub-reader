@@ -1,4 +1,4 @@
-import { WorkspaceLeaf, TFile, FileView } from "obsidian";
+import { TFile, FileView } from "obsidian";
 import ePub, { Book, Rendition } from "epubjs";
 import { NavigationTools } from "./epub-navigation-tools";
 import { EpubThemes } from "./epub-themes";
@@ -11,12 +11,8 @@ export class EpubView extends FileView {
 	private _navigationTools: NavigationTools | null = null;
 	public file: TFile | null = null;
 
-	constructor(leaf: WorkspaceLeaf) {
-		super(leaf);
-	}
-
 	getViewType(): string { return EPUB_VIEW_TYPE; }
-	getDisplayText(): string { return "EPUB Viewer"; }
+	getDisplayText(): string { return this.file?.basename || "EPUB Viewer"; }
 
 	get navigationTools(): NavigationTools | null {
 		return this._navigationTools;
@@ -24,6 +20,10 @@ export class EpubView extends FileView {
 
 	set navigationTools(nav: NavigationTools | null) {
 		this._navigationTools = nav;
+	}
+
+	setEphemeralState(): void {
+		this._navigationTools?.hasFocus();
 	}
 
 	async onLoadFile(file: TFile): Promise<void> {
