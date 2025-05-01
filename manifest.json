@@ -1,7 +1,7 @@
 {
   "id": "obsidian-epub-reader",
   "name": "EPUB Reader",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "minAppVersion": "1.8.7",
   "description": "A plugin that lets you read EPUB files directly within the app, styled with your current theme, and easily copy links or quotes from EPUB content for note-taking and referencing.",
   "author": "VinceRV",
