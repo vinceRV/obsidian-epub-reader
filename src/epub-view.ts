@@ -3,7 +3,7 @@ import ePub, { Book, Rendition } from "epubjs";
 import { NavigationTools } from "./epub-navigation-tools";
 import { EpubThemes } from "./epub-themes";
 
-export const EPUB_VIEW_TYPE = "epub-view";
+export const EPUB_VIEW_TYPE = "obsidian-epub-reader";
 
 export class EpubView extends FileView {
 	private book: Book | null = null;
@@ -12,7 +12,7 @@ export class EpubView extends FileView {
 	public file: TFile | null = null;
 
 	getViewType(): string { return EPUB_VIEW_TYPE; }
-	getDisplayText(): string { return this.file?.basename || "EPUB Viewer"; }
+	getDisplayText(): string { return this.file?.basename || "EPUB Reader"; }
 
 	get navigationTools(): NavigationTools | null {
 		return this._navigationTools;
