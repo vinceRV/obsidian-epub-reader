@@ -73,7 +73,7 @@ export class NavigationTools {
 					event.preventDefault();
 				} else if (event.key === "PageUp" || event.key === "PageDown") {
 					const toc = await this.book.loaded.navigation;
-					const currentHref = this.rendition.location?.start?.href;
+					const currentHref = this.rendition.location?.start?.href ?? "";
 					const tocItems = toc.toc;
 					const idx = tocItems.findIndex(item => this.sanitize(item.href) === this.sanitize(currentHref));
 					let targetIdx = -1;
